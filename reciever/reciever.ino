@@ -80,6 +80,7 @@ void loop() {
 
         Serial.print("Mapped ax (sensor value): ");
         Serial.println(ax);
+        Serial.println(myData.var1);
 
         int servoPosition = myData.var1 - ax;
 
