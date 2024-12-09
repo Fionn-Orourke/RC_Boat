@@ -2,19 +2,15 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
-#include <ESPmDNS.h>
 #include <WebSocketsServer.h>
 #include "homepage.h"
-
+WebServer server(80);
 #define xpin 32
 #define ypin 35
 uint8_t broadcastAddress[] = {0x64, 0xb7, 0x08, 0x29, 0x1b, 0x68};
 
 const char* ssid = "Shibby";
 const char* password = "12345678";
-
-WebServer server(80);
-WebSocketsServer webSocket = WebSocketsServer(81);
 
 // Structure to hold the data
 typedef struct struct_message {
@@ -28,24 +24,16 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.print("Last Packet Send Status: ");
     Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
 }
-
 void handleRoot() {
-  server.send(200, "text/html", homePagePart1);
+ String s = MAIN_page; //Read HTML contents
+ server.send(200, "text/html", s); //Send web page
 }
 
-void handleNotFound() {
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
+void handleADC() {
+ int a = analogRead(xpin);
+ String adcValue = String(myData.var1);
+ 
+ server.send(200, "text/plane", adcValue);
 }
 
 void setup() {
@@ -63,19 +51,6 @@ void setup() {
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
-    if (MDNS.begin("esp32")) {
-        Serial.println("MDNS responder started");
-    }
-
-    server.on("/", handleRoot);
-    server.onNotFound(handleNotFound);
-
-    server.begin();
-    Serial.println("HTTP server started");
-
-    webSocket.begin();
-    webSocket.onEvent(webSocketEvent);
-
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
         return;
@@ -86,16 +61,24 @@ void setup() {
     esp_now_peer_info_t peerInfo;
     memset(&peerInfo, 0, sizeof(peerInfo));
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = 0;  
+    peerInfo.channel = 0;
     peerInfo.encrypt = false;
 
     if (esp_now_add_peer(&peerInfo) != ESP_OK){
         Serial.println("Failed to add peer");
         return;
     }
+
+    // Initialize WebSocket (this part is kept as per your request)
+    //webSocket.begin();
+    //webSocket.onEvent(webSocketEvent);
+    server.on("/", handleRoot);      //This is display page
+    server.on("/readADC", handleADC);
+    server.begin();                  //Start server
+    Serial.println("HTTP server started");
 }
 
-void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
+/*void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
     switch (type) {
         case WStype_DISCONNECTED:
             Serial.printf("[%u] Disconnected!\n", num);
@@ -109,18 +92,17 @@ void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length)
             Serial.printf("[%u] get Text: %s\n", num, payload);
             break;
     }
-}
+}*/
 
 void loop() {
+    //webSocket.loop();
     server.handleClient();
-    webSocket.loop();
-
     int x = analogRead(xpin);
     int y = analogRead(ypin);
     Serial.println(x);
 
     if (x >= 2780) {
-        myData.var1 = map(x, 2780, 4095, 90, 180);
+        myData.var1 = map(x, 3080, 4095, 90, 180);
     }
     else if (x <= 2780) {
         myData.var1 = map(x, 0, 2780, 0, 90);
@@ -135,12 +117,13 @@ void loop() {
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
     Serial.println(myData.var1);
 
-    String jsonData = "{\"x\":" + String(x) + ",\"y\":" + String(y) + "}";
-    webSocket.broadcastTXT(jsonData);
+    // Broadcast data over WebSocket
+    //String jsonData = "{\"x\":" + String(x) + ",\"y\":" + String(y) + "}";
+    //webSocket.broadcastTXT(jsonData);
 
     delay(50);
 }
-  
+
  //c0:49:ef:44:d0:68 sender
 
  //64:b7:08:29:1b:68 reciever
