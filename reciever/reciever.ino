@@ -4,7 +4,7 @@
 #include <MPU6050.h>
 #include <ESP32Servo.h>
 //peerInfo.channel = 0;
-uint8_t broadcastAddress[] = {0xc0, 0x49, 0xef, 0x44, 0xd0, 0x68};  // Ensure this address is correct
+uint8_t broadcastAddress[] = {0xc0, 0x49, 0xef, 0x44, 0xd0, 0x68};  
 
 const char* ssid = "Shibby";
 const char* password = "12345678";
@@ -16,7 +16,7 @@ int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
 typedef struct struct_messageout {
-    double sen1; // Change double to float
+    double sen1; 
     double sen2;
 } struct_messageout;
 
@@ -47,8 +47,8 @@ void OnDataRecv(const esp_now_recv_info* info, const uint8_t* incomingData, int 
 
 void setup() {
     Serial.begin(115200);  
-    WiFi.mode(WIFI_STA);  // Setup WiFi mode
-    sg90.attach(servo_pin);  // Attach servo to pin
+    WiFi.mode(WIFI_STA); 
+    sg90.attach(servo_pin); 
     Wire.begin();  
 
     sensor.initialize();  
@@ -93,10 +93,9 @@ void loop() {
 
         int servoPosition = myData_in.var1 - ax;  // Adjust servo position based on joystick input
 
-        // Ensure the servo position is within the valid range (0 to 180)
         servoPosition = constrain(servoPosition, 0, 180);
 
-        myData_out.sen1 = servoPosition;  // Set the servo position value
+        myData_out.sen1 = servoPosition;  // Set the servo position
         esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData_out, sizeof(myData_out));
 
         if (result == ESP_OK) {
@@ -106,11 +105,11 @@ void loop() {
             Serial.println(result);
         }
 
-        sg90.write(servoPosition);  // Move the servo
+        sg90.write(servoPosition);
         Serial.print("Servo position: ");
         Serial.println(servoPosition);
     }
 
-    delay(50);  // Consider adjusting or removing this
+    delay(50); 
 }
 

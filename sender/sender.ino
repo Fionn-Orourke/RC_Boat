@@ -68,8 +68,6 @@ void setup() {
         Serial.println("Failed to add peer");
         return;
     }
-
-    // Initialize WebSocket (this part is kept as per your request)
     //webSocket.begin();
     //webSocket.onEvent(webSocketEvent);
     server.on("/", handleRoot);      //This is display page
