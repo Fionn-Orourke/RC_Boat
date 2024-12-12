@@ -90,14 +90,14 @@ void loop() {
         dataReceived = false;
 
         sensor.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-        Serial.print("Accelerometer ax: ");
-        Serial.println(ax);
+        Serial.print("Accelerometer ay: ");
+        Serial.println(ay);
         
-        ax = map(ax, -17000, 17000, -90, 90); // Map accelerometer data to servo range
+        ay = map(ay, -17000, 17000, -90, 90); // Map accelerometer data to servo range
         Serial.print("Mapped ax: ");
         Serial.println(ax);
 
-        int servoPosition = myData_in.var1 - ax;  // Adjust servo position based on joystick input
+        int servoPosition = myData_in.var1 - ay;  // Adjust servo position based on joystick input
         Serial.print("Joystick var1: ");
         Serial.println(myData_in.var1);
         Serial.print("Calculated Servo Position: ");
@@ -105,14 +105,14 @@ void loop() {
 
         servoPosition = constrain(servoPosition, 0, 180);
         myData_out.sen1 = servoPosition;  // Set the servo position
-        //esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData_out, sizeof(myData_out));
+        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData_out, sizeof(myData_out));
 
-        /*if (result == ESP_OK) {
+        if (result == ESP_OK) {
             Serial.println("Data sent successfully");
         } else {
             Serial.print("Error sending data: ");
             Serial.println(result);
-        }*/
+        }
 
         sg90.write(servoPosition);
         Serial.print("Servo position: ");

@@ -22,6 +22,24 @@ typedef struct struct_message {
 
 struct_message myData;
 
+typedef struct struct_messagein {
+    double val1;
+    double val2;
+} struct_messagein;
+
+struct_messagein myData_in;
+
+bool dataReceived = false;
+
+void OnDataRecv(const esp_now_recv_info* info, const uint8_t* incomingData, int len) {
+    memcpy(&myData_in, incomingData, sizeof(myData_in));
+    dataReceived = true;
+    Serial.print("Received val1: ");
+    Serial.println(myData_in.val1);
+    Serial.print("Received val2: ");
+    Serial.println(myData_in.val2);
+}
+
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.print("Last Packet Send Status: ");
     Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
@@ -47,12 +65,15 @@ void handleRoot() {
  String s = MAIN_page; //Read HTML contents
  server.send(200, "text/html", s); //Send web page
 }
-
 void handleADC() {
- int a = analogRead(xpin);
- String adcValue = String(myData.var1);
- 
- server.send(200, "text/plane", adcValue);
+    // Send only the joystick data (myData.var1)
+    String adcValue = String(myData.var1) + " Joystick position"; 
+    server.send(200, "text/plain", adcValue); 
+}
+void handleServo() {
+    // Send only the servo data (myData_in.val1)
+    String servoValue = String(myData_in.val1) + " Servo position"; 
+    server.send(200, "text/plain", servoValue); 
 }
 
 void setup() {
@@ -79,7 +100,7 @@ void setup() {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
-
+    esp_now_register_recv_cb(OnDataRecv);
     
 
     esp_now_peer_info_t peerInfo;
@@ -97,6 +118,7 @@ void setup() {
     //webSocket.onEvent(webSocketEvent);
     server.on("/", handleRoot);      //This is display page
     server.on("/readADC", handleADC);
+    server.on("/readServo", handleServo);
     server.begin();                  //Start server
     Serial.println("HTTP server started");
 }
@@ -124,17 +146,17 @@ void loop() {
     int y = analogRead(ypin);
     Serial.println(x);
 
-    if (x >= 2780) {
-        myData.var1 = map(x, 3080, 4095, 90, 180);
+    if (x >= 2680) {
+        myData.var1 = map(x, 2680, 4095, 90, 180);
     }
-    else if (x <= 2780) {
-        myData.var1 = map(x, 0, 2780, 0, 90);
+    else if (x <= 2680) {
+        myData.var1 = map(x, 0, 2680, 0, 90);
     }
-    if (y >= 2880) {
-        myData.var2 = map(y, 2880, 4095, 90, 180);
+    if (y >= 2680) {
+        myData.var2 = map(y, 2680, 4095, 90, 180);
     }
-    else if (y <= 2880) {
-        myData.var2 = map(y, 0, 2880, 0, 90);
+    else if (y <= 2680) {
+        myData.var2 = map(y, 0, 2680, 0, 90);
     }
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
