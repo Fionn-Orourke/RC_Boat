@@ -3,7 +3,8 @@
 #include <Wire.h>
 #include <MPU6050.h>
 #include <ESP32Servo.h>
-//peerInfo.channel = 0;
+#include "esp_wifi.h"
+
 uint8_t broadcastAddress[] = {0xc0, 0x49, 0xef, 0x44, 0xd0, 0x68};  
 
 const char* ssid = "Shibby";
@@ -31,10 +32,10 @@ struct_messagein myData_in;
 
 bool dataReceived = false;
 
-void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
+/*void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.print("Last Packet Send Status: ");
     Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
-}
+}*/
 
 void OnDataRecv(const esp_now_recv_info* info, const uint8_t* incomingData, int len) {
     memcpy(&myData_in, incomingData, sizeof(myData_in));
@@ -66,20 +67,20 @@ void setup() {
     }
 
     esp_now_register_recv_cb(OnDataRecv);
-    esp_now_register_send_cb(OnDataSent);
-
+    //esp_now_register_send_cb(OnDataSent);
 
     esp_now_peer_info_t peerInfo;
     memset(&peerInfo, 0, sizeof(peerInfo));
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
     peerInfo.channel = 0;
     peerInfo.encrypt = false;
-
-    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_channel(6, WIFI_SECOND_CHAN_NONE); 
+    esp_wifi_set_promiscuous(false);
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
         Serial.println("Failed to add peer");
         return;
     }
-
 
     Serial.println("ESP-NOW initialized successfully");
 }
@@ -89,27 +90,41 @@ void loop() {
         dataReceived = false;
 
         sensor.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+        Serial.print("Accelerometer ax: ");
+        Serial.println(ax);
+        
         ax = map(ax, -17000, 17000, -90, 90); // Map accelerometer data to servo range
+        Serial.print("Mapped ax: ");
+        Serial.println(ax);
 
         int servoPosition = myData_in.var1 - ax;  // Adjust servo position based on joystick input
+        Serial.print("Joystick var1: ");
+        Serial.println(myData_in.var1);
+        Serial.print("Calculated Servo Position: ");
+        Serial.println(servoPosition);
 
         servoPosition = constrain(servoPosition, 0, 180);
-
         myData_out.sen1 = servoPosition;  // Set the servo position
-        esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData_out, sizeof(myData_out));
+        //esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData_out, sizeof(myData_out));
 
-        if (result == ESP_OK) {
+        /*if (result == ESP_OK) {
             Serial.println("Data sent successfully");
         } else {
             Serial.print("Error sending data: ");
             Serial.println(result);
-        }
+        }*/
 
         sg90.write(servoPosition);
         Serial.print("Servo position: ");
         Serial.println(servoPosition);
     }
+    //sensor.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+    //ax = map(ax, -17000, 17000, -90, 90);
+    //int servoPosition = myData_in.var1 - ax;
+    //sg90.write(servoPosition);
+
+    Serial.print("WiFi Channel: ");
+    Serial.println(WiFi.channel());
 
     delay(50); 
 }
-

@@ -4,11 +4,13 @@
 #include <WebServer.h>
 #include <WebSocketsServer.h>
 #include "homepage.h"
+#include "esp_wifi.h"
+
 WebServer server(80);
 #define xpin 32
 #define ypin 35
 uint8_t broadcastAddress[] = {0x64, 0xb7, 0x08, 0x29, 0x1b, 0x68};
-
+int channel = WiFi.channel();
 const char* ssid = "Shibby";
 const char* password = "12345678";
 
@@ -23,7 +25,24 @@ struct_message myData;
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.print("Last Packet Send Status: ");
     Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+    Serial.print("Status Code: ");
+    Serial.println(status);
+
+    // Print MAC address of the receiver
+    char macStr[18];
+    snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac_addr[0], mac_addr[1], mac_addr[2],
+             mac_addr[3], mac_addr[4], mac_addr[5]);
+    Serial.print("Receiver MAC Address: ");
+    Serial.println(macStr);
+
+    // Log Wi-Fi status
+    Serial.print("WiFi Channel: ");
+    Serial.println(WiFi.channel());
+    Serial.print("WiFi Signal Strength (RSSI): ");
+    Serial.println(WiFi.RSSI());
 }
+
 void handleRoot() {
  String s = MAIN_page; //Read HTML contents
  server.send(200, "text/html", s); //Send web page
@@ -51,23 +70,29 @@ void setup() {
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_channel(6, WIFI_SECOND_CHAN_NONE);  
+    esp_wifi_set_promiscuous(false);
+
+
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
 
-    esp_now_register_send_cb(OnDataSent);
+    
 
     esp_now_peer_info_t peerInfo;
     memset(&peerInfo, 0, sizeof(peerInfo));
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = 0;
+    peerInfo.channel = channel;
     peerInfo.encrypt = false;
 
     if (esp_now_add_peer(&peerInfo) != ESP_OK){
         Serial.println("Failed to add peer");
         return;
     }
+    esp_now_register_send_cb(OnDataSent);
     //webSocket.begin();
     //webSocket.onEvent(webSocketEvent);
     server.on("/", handleRoot);      //This is display page
@@ -114,12 +139,18 @@ void loop() {
 
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
     Serial.println(myData.var1);
+    if (result == ESP_OK) {
+        Serial.println("esp_now_send initiated successfully");
+    } else {
+        Serial.print("esp_now_send failed with error: ");
+        Serial.println(result);
+    }
 
     // Broadcast data over WebSocket
     //String jsonData = "{\"x\":" + String(x) + ",\"y\":" + String(y) + "}";
     //webSocket.broadcastTXT(jsonData);
 
-    delay(50);
+    delay(100);
 }
 
  //c0:49:ef:44:d0:68 sender
