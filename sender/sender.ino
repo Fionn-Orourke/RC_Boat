@@ -102,7 +102,7 @@ void setup() {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
-    esp_now_register_recv_cb(OnDataRecv);
+    //esp_now_register_recv_cb(OnDataRecv);
     
 
     esp_now_peer_info_t peerInfo;
@@ -115,7 +115,10 @@ void setup() {
         Serial.println("Failed to add peer");
         return;
     }
-    esp_now_register_send_cb(OnDataSent);
+    else{
+      Serial.println("peer added");
+    }
+    //esp_now_register_send_cb(OnDataSent);
     //webSocket.begin();
     //webSocket.onEvent(webSocketEvent);
     server.on("/", handleRoot);      //This is display page

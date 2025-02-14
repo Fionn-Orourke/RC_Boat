@@ -65,7 +65,7 @@ void setup() {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
-     int channel = WiFi.channel();
+     int channel = 11;//WiFi.channel();
     esp_now_register_recv_cb(OnDataRecv);
     esp_now_register_send_cb(OnDataSent);
 
