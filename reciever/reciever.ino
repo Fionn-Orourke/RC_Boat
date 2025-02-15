@@ -125,6 +125,7 @@ void loop() {
 
         servoPosition = constrain(servoPosition, 0, 180);
         myData_out.sen1 = servoPosition;  // Set the servo position
+        myData_out.sen2 = ay;
         esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData_out, sizeof(myData_out));
 
         if (result == ESP_OK) {

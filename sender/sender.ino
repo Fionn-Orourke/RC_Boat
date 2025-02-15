@@ -84,7 +84,7 @@ String handleADC() {
 
 String handleServo() {
     // Respond with servo value (myData_in.val1)
-    String servoValue = String(myData_in.val1);
+    String servoValue = String(myData_in.val2+90);
     server.send(200, "text/plain", servoValue);
     return servoValue;
 }
@@ -173,7 +173,7 @@ void loop() {
         Serial.println(result);
     }
 
-    delay(100); 
+    delay(50); 
 }
 
  //c0:49:ef:44:d0:68 sender
