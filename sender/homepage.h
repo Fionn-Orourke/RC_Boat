@@ -1,68 +1,43 @@
 const char MAIN_page[] PROGMEM = R"=====( 
 <!DOCTYPE html>
-<html>
-<style>
-.card {
-    max-width: 2000px;
-    min-height: 800px;
-    background: #02b875;
-    padding: 30px;
-    box-sizing: border-box;
-    color: #FFF;
-    margin: 20px;
-    box-shadow: 0px 2px 18px -4px rgba(0,0,0,0.75);
-    border-radius: 8px;
-    text-align: center;
-}
-
-h1 {
-    font-size: 80px;
-}
-
-p {
-    font-size: 50px;
-    font-weight: bold;
-}
-
-</style>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 Dashboard</title>
+</head>
 <body>
-<div class="card">
-    <h1>Servo Position</h1>
-    <p id="servoPos">0</p>
-</div>
-<div class="card">
-    <h1>joystic Position</h1>
-    <p id="ADCValue">0</p>
-</div>
+    <h1>ESP32 Data</h1>
+    <div>
+        <h2>Tilt Angle:</h2>
+        <p id="tilt-angle">Loading...</p>
+    </div>
 
-<script>
-setInterval(function() {
-    getJoystickData();
-    getServoData();
-}, 1000); 
+    <div>
+        <h2>Servo Position:</h2>
+        <p id="servo-position">Loading...</p>
+    </div>
 
-function getJoystickData() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("ADCValue").innerHTML = this.responseText;
+    <script>
+        // Fetch tilt data every second
+        setInterval(fetchTiltData, 50);
+
+        function fetchTiltData() {
+            fetch('/readADC')  // Call the /readADC endpoint
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('tilt-angle').innerText = data; // Update tilt angle
+                })
+                .catch(error => console.error('Error fetching tilt data:', error));
+
+            fetch('/readServo')  // Call the /readServo endpoint
+                .then(response => response.text())
+                .then(data => {
+                    document.getElementById('servo-position').innerText = data; // Update servo position
+                })
+                .catch(error => console.error('Error fetching servo data:', error));
         }
-    };
-    xhttp.open("GET", "readADC", true);
-    xhttp.send();
-}
-
-function getServoData() {
-    var xhttp = new XMLHttpRequest();
-    xhttp.onreadystatechange = function() {
-        if (this.readyState == 4 && this.status == 200) {
-            document.getElementById("servoPos").innerHTML = this.responseText;
-        }
-    };
-    xhttp.open("GET", "readServo", true);
-    xhttp.send();
-}
-</script>
+    </script>
 </body>
 </html>
-)=====";
+)====="

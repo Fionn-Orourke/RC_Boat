@@ -5,6 +5,8 @@
 #include <ESP32Servo.h>
 #include "esp_wifi.h"
 
+esp_err_t result;
+
 uint8_t broadcastAddress[] = {0xc0, 0x49, 0xef, 0x44, 0xd0, 0x68};  
 
 const char* ssid = "Shibby";
@@ -35,6 +37,23 @@ bool dataReceived = false;
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.print("Last Packet Send Status: ");
     Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+
+    Serial.print("Status Code: ");
+    Serial.println(status);
+
+    // Print MAC address of the receiver
+    char macStr[18];
+    snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+             mac_addr[0], mac_addr[1], mac_addr[2],
+             mac_addr[3], mac_addr[4], mac_addr[5]);
+    Serial.print("Receiver MAC Address: ");
+    Serial.println(macStr);
+
+    // Log Wi-Fi status
+    Serial.print("WiFi Channel: ");
+    Serial.println(WiFi.channel());
+    Serial.print("WiFi Signal Strength (RSSI): ");
+    Serial.println(WiFi.RSSI());
 }
 
 void OnDataRecv(const esp_now_recv_info* info, const uint8_t* incomingData, int len) {
@@ -65,13 +84,12 @@ void setup() {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
-     int channel = 11;//WiFi.channel();
-    esp_now_register_recv_cb(OnDataRecv);
-    esp_now_register_send_cb(OnDataSent);
+     int channel = 4;//WiFi.channel();
+    
 
     esp_now_peer_info_t peerInfo;
     memset(&peerInfo, 0, sizeof(peerInfo));
-    memcpy(peerInfo.peer_addr, broadcastAddress, channel);
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
     peerInfo.channel = channel;
     peerInfo.encrypt = false;
     esp_wifi_set_promiscuous(true);
@@ -81,6 +99,8 @@ void setup() {
         Serial.println("Failed to add peer");
         return;
     }
+    esp_now_register_recv_cb(OnDataRecv);
+    esp_now_register_send_cb(OnDataSent);
 
     Serial.println("ESP-NOW initialized successfully");
 }

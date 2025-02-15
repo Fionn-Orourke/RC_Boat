@@ -1,36 +1,40 @@
-#include <esp_now.h>// notes. ESP-NOW simplifies the communication process by merging the Application, Transport, and Network layers of the traditional TCP/IP model into a single layer
-#include <WiFi.h>
-#include <WiFiClient.h>
-#include <WebServer.h>
-//#include <WebSocketsServer.h>
-#include "homepage.h"
-#include "esp_wifi.h"
-
-WebServer server(80);
 #define xpin 32
 #define ypin 35
-uint8_t broadcastAddress[] = {0x64, 0xb7, 0x08, 0x29, 0x1b, 0x68};
 
-const char* ssid = "Shibby";
+#include <esp_now.h>
+#include <WiFi.h>
+#include <WebServer.h>
+#include "homepage.h"
+
+
+
+
+
+
+// WiFi and server setup
+;const char* ssid = "Shibby";
 const char* password = "12345678";
+WebServer server(80);
+double xtilt = 8;
 
-// Structure to hold the data
+uint8_t broadcastAddress[] = {0x64, 0xb7, 0x08, 0x29, 0x1b, 0x68};
+// Structure for outgoing data
 typedef struct struct_message {
     double var1;
     double var2;
 } struct_message;
-
-struct_message myData;
-
+struct_message myData;  
 typedef struct struct_messagein {
     double val1;
     double val2;
 } struct_messagein;
-
-struct_messagein myData_in;
+struct_messagein myData_in;  
 
 bool dataReceived = false;
+     
 
+
+// ESP-NOW callbacks
 void OnDataRecv(const esp_now_recv_info* info, const uint8_t* incomingData, int len) {
     memcpy(&myData_in, incomingData, sizeof(myData_in));
     dataReceived = true;
@@ -38,11 +42,15 @@ void OnDataRecv(const esp_now_recv_info* info, const uint8_t* incomingData, int 
     Serial.println(myData_in.val1);
     Serial.print("Received val2: ");
     Serial.println(myData_in.val2);
+    xtilt = myData_in.val2;
+    Serial.print(myData_in.val2);
+    
 }
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.print("Last Packet Send Status: ");
     Serial.println(status == ESP_NOW_SEND_SUCCESS ? "Delivery Success" : "Delivery Fail");
+
     Serial.print("Status Code: ");
     Serial.println(status);
 
@@ -61,20 +69,24 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.println(WiFi.RSSI());
 }
 
+// Web server handlers
 void handleRoot() {
- String s = MAIN_page; //Read HTML contents
- server.send(200, "text/html", s); //Send web page
+    String s = MAIN_page; // Read HTML contents from homepage.h
+    server.send(200, "text/html", s);
 }
-void handleADC() {
-    
-    String adcValue = String(myData.var1) ; 
-    server.send(200, "text/plain", adcValue); 
+
+String handleADC() {
+    // Respond with ADC reading for tilt data (myData.var1)
+    String tilt = String(myData.var1);
+    server.send(200, "text/plain", tilt);
+    return tilt;
 }
-void handleServo() {
-    
-    Serial.println(myData_in.val1);
-    String servoValue = String(myData_in.val1) ; 
-    server.send(200, "text/plain", servoValue); 
+
+String handleServo() {
+    // Respond with servo value (myData_in.val1)
+    String servoValue = String(myData_in.val1);
+    server.send(200, "text/plain", servoValue);
+    return servoValue;
 }
 
 void setup() {
@@ -86,102 +98,82 @@ void setup() {
         delay(500);
         Serial.print(".");
     }
-    int channel = WiFi.channel();
+    //Wire.begin();
+
     Serial.println("");
     Serial.print("Connected to ");
     Serial.println(ssid);
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
 
-    esp_wifi_set_promiscuous(true);
-    esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);  
-    esp_wifi_set_promiscuous(false);
+    //esp_wifi_set_promiscuous(true);
+    //esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE);  
+    //esp_wifi_set_promiscuous(false);
 
 
+    // ESP-NOW initialization
     if (esp_now_init() != ESP_OK) {
         Serial.println("Error initializing ESP-NOW");
         return;
     }
-    //esp_now_register_recv_cb(OnDataRecv);
-    
 
     esp_now_peer_info_t peerInfo;
     memset(&peerInfo, 0, sizeof(peerInfo));
-    memcpy(peerInfo.peer_addr, broadcastAddress, channel);
-    peerInfo.channel = channel;
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = WiFi.channel();
     peerInfo.encrypt = false;
 
-    if (esp_now_add_peer(&peerInfo) != ESP_OK){
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
         Serial.println("Failed to add peer");
         return;
     }
     else{
       Serial.println("peer added");
     }
-    //esp_now_register_send_cb(OnDataSent);
-    //webSocket.begin();
-    //webSocket.onEvent(webSocketEvent);
-    server.on("/", handleRoot);      //This is display page
-    server.on("/readADC", handleADC);
-    server.on("/readServo", handleServo);
-    server.begin();                  //Start server
+
+    // Register the callback for data sent/received
+    esp_now_register_recv_cb(OnDataRecv);
+    esp_now_register_send_cb(OnDataSent);
+
+    // HTTP server route setup
+    server.on("/", handleRoot); 
+    server.on("/readADC", handleADC);  // Endpoint for ADC values
+    server.on("/readServo", handleServo);  // Endpoint for servo values
+    server.begin();  // Start server
     Serial.println("HTTP server started");
 }
 
-/*void webSocketEvent(uint8_t num, WStype_t type, uint8_t *payload, size_t length) {
-    switch (type) {
-        case WStype_DISCONNECTED:
-            Serial.printf("[%u] Disconnected!\n", num);
-            break;
-        case WStype_CONNECTED: {
-            IPAddress ip = webSocket.remoteIP(num);
-            Serial.printf("[%u] Connected from %s\n", num, ip.toString().c_str());
-            break;
-        }
-        case WStype_TEXT:
-            Serial.printf("[%u] get Text: %s\n", num, payload);
-            break;
-    }
-}*/
-
 void loop() {
-    //webSocket.loop();
     server.handleClient();
+
+    // Read analog values from pins for tilt data (xpin, ypin)
     int x = analogRead(xpin);
     int y = analogRead(ypin);
-    Serial.println(x);
 
-    
-
+    // Map ADC values to angles (for tilt)
     if (x >= 2680) {
         myData.var1 = map(x, 2680, 4095, 90, 180);
-    }
-    else if (x <= 2680) {
+    } else {
         myData.var1 = map(x, 0, 2680, 0, 90);
     }
+
     if (y >= 2680) {
         myData.var2 = map(y, 2680, 4095, 90, 180);
-    }
-    else if (y <= 2680) {
+    } else {
         myData.var2 = map(y, 0, 2680, 0, 90);
     }
 
+    // Send data over ESP-NOW to the peer device
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));
-    Serial.println(myData.var1);
+
     if (result == ESP_OK) {
-        Serial.println("esp_now_send initiated successfully");
+        Serial.println("ESP-NOW send initiated successfully");
     } else {
-        Serial.print("esp_now_send failed with error: ");
+        Serial.print("ESP-NOW send failed with error: ");
         Serial.println(result);
     }
-    Serial.print("WiFi Channel: ");
-    Serial.println(WiFi.channel());
 
-    // Broadcast data over WebSocket
-    //String jsonData = "{\"x\":" + String(x) + ",\"y\":" + String(y) + "}";
-    //webSocket.broadcastTXT(jsonData);
-
-    delay(100);
+    delay(100); 
 }
 
  //c0:49:ef:44:d0:68 sender
