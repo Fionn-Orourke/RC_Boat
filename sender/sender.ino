@@ -22,6 +22,7 @@ uint8_t broadcastAddress[] = {0x64, 0xb7, 0x08, 0x29, 0x1b, 0x68};
 typedef struct struct_message {
     double var1;
     double var2;
+    int chan2;
 } struct_message;
 struct_message myData;  
 typedef struct struct_messagein {
@@ -121,6 +122,7 @@ void setup() {
     memset(&peerInfo, 0, sizeof(peerInfo));
     memcpy(peerInfo.peer_addr, broadcastAddress, 6);
     peerInfo.channel = WiFi.channel();
+    
     peerInfo.encrypt = false;
 
     if (esp_now_add_peer(&peerInfo) != ESP_OK) {
@@ -162,6 +164,7 @@ void loop() {
     } else {
         myData.var2 = map(y, 0, 2680, 0, 90);
     }
+    myData.chan2 = WiFi.channel();
 
     // Send data over ESP-NOW to the peer device
     esp_err_t result = esp_now_send(broadcastAddress, (uint8_t *)&myData, sizeof(myData));

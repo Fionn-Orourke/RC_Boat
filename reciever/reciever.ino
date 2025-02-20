@@ -28,11 +28,13 @@ struct_messageout myData_out;
 typedef struct struct_messagein {
     double var1;
     double var2;
+    int chan1;
 } struct_messagein;
-
+int count = 0;
 struct_messagein myData_in;
 
 bool dataReceived = false;
+int channel = 1;
 
 void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.print("Last Packet Send Status: ");
@@ -56,6 +58,30 @@ void OnDataSent(const uint8_t *mac_addr, esp_now_send_status_t status) {
     Serial.println(WiFi.RSSI());
 }
 
+void addPeer(int chan){
+  if (esp_now_init() != ESP_OK) {
+        Serial.println("Error initializing ESP-NOW");
+        //return;
+    }
+    //for(channel = 0; channel <=20; channel++){}
+    esp_now_peer_info_t peerInfo;
+    memset(&peerInfo, 0, sizeof(peerInfo));
+    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
+    peerInfo.channel = chan;
+    peerInfo.encrypt = false;
+    esp_wifi_set_promiscuous(true);
+    esp_wifi_set_channel(chan, WIFI_SECOND_CHAN_NONE); 
+    esp_wifi_set_promiscuous(false);
+    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
+        Serial.println("Failed to add peer on cahnnel");
+        //return;
+    }
+    else{
+      Serial.println("peer added on channel");
+      
+    }
+    Serial.print(chan);
+}
 void OnDataRecv(const esp_now_recv_info* info, const uint8_t* incomingData, int len) {
     memcpy(&myData_in, incomingData, sizeof(myData_in));
     dataReceived = true;
@@ -63,15 +89,21 @@ void OnDataRecv(const esp_now_recv_info* info, const uint8_t* incomingData, int 
     Serial.println(myData_in.var1);
     Serial.print("Received var2: ");
     Serial.println(myData_in.var2);
+    Serial.print("Received chan1: ");
+    Serial.println(myData_in.chan1);
+    channel = myData_in.chan1;
+    count = 0;
+
 }
 
 void setup() {
+  //WiFi.channel();
     Serial.begin(115200);  
     WiFi.mode(WIFI_STA); 
     sg90.attach(servo_pin); 
     Wire.begin();  
 
-    sensor.initialize();  
+    sensor.initialize(); 
     if (sensor.testConnection()) {
         Serial.println("Successfully Connected to MPU6050");
     } else {
@@ -80,25 +112,8 @@ void setup() {
 
     delay(1000); 
 
-    if (esp_now_init() != ESP_OK) {
-        Serial.println("Error initializing ESP-NOW");
-        return;
-    }
-     int channel = 4;//WiFi.channel();
-    
-
-    esp_now_peer_info_t peerInfo;
-    memset(&peerInfo, 0, sizeof(peerInfo));
-    memcpy(peerInfo.peer_addr, broadcastAddress, 6);
-    peerInfo.channel = channel;
-    peerInfo.encrypt = false;
-    esp_wifi_set_promiscuous(true);
-    esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE); 
-    esp_wifi_set_promiscuous(false);
-    if (esp_now_add_peer(&peerInfo) != ESP_OK) {
-        Serial.println("Failed to add peer");
-        return;
-    }
+    addPeer(channel);
+    //}
     esp_now_register_recv_cb(OnDataRecv);
     esp_now_register_send_cb(OnDataSent);
 
@@ -138,7 +153,27 @@ void loop() {
         sg90.write(servoPosition);
         Serial.print("Servo position: ");
         Serial.println(servoPosition);
+        count = 0;
+        channel = myData_in.chan1;
+        if(WiFi.channel()!= channel){
+          addPeer(channel);
+        }
+
     }
+    else{
+      count ++;
+      if(count >= 50){
+        
+        if(channel >=15){
+          channel = 0;
+        }
+        addPeer(channel);
+        channel++;
+        count = 0;
+      }
+
+    }
+    
     sensor.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
     ay = map(ay, -17000, 17000, -90, 90);
     int servoPosition = myData_in.var1 - ay;
